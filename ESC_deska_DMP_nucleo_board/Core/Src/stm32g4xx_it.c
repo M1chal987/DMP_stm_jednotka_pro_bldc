@@ -1,0 +1,396 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file    stm32g4xx_it.c
+  * @brief   Interrupt Service Routines.
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2025 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "stm32g4xx_it.h"
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "stdio.h"
+#include "string.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN TD */
+
+/* USER CODE END TD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+/* USER CODE BEGIN PV */
+extern uint16_t cislo16;
+extern uint8_t vect_codes[];
+extern uint16_t angle_pulse;
+extern uint8_t UART2_RxBuffer[];
+extern uint8_t UART_RxSize;
+extern char Recieved_data[];
+extern uint8_t rec_ack;
+
+
+// SVPWM timing vars
+extern uint16_t null_vector_time;
+extern uint16_t first_vector_time;
+extern uint16_t second_vector_time;
+extern uint8_t TIM1_OV_FLAG;
+//extern plot;
+
+uint8_t rec_i = 0;
+uint8_t rec_cnt = 0;
+
+uint16_t capture1 = 0;
+uint16_t capture2 = 0;
+uint16_t TIM3_diff = 0;
+uint16_t TIM3_diff2 = 0;
+uint32_t cislo32 = 0;
+uint16_t TIM1_ov_cnt;
+float pulse_fl;
+extern int32_t deg_sec;
+
+// ADC
+uint32_t ADC_data;
+uint16_t ADC1_data = 8200; // init at expected starting value
+uint16_t ADC1_data_prev = 8200;;
+uint16_t ADC2_data = 8200; // init at expected starting value
+uint16_t ADC2_data_prev = 8200;
+uint16_t ADC_max_change = 4000;
+uint8_t sampling_started = 0;
+
+// uart plot func
+extern uint16_t dataH[500];
+extern uint16_t plot_data_index;
+
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+/* USER CODE BEGIN PFP */
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/* External variables --------------------------------------------------------*/
+
+/* USER CODE BEGIN EV */
+
+/* USER CODE END EV */
+
+/******************************************************************************/
+/*           Cortex-M4 Processor Interruption and Exception Handlers          */
+/******************************************************************************/
+/**
+  * @brief This function handles Non maskable interrupt.
+  */
+void NMI_Handler(void)
+{
+  /* USER CODE BEGIN NonMaskableInt_IRQn 0 */
+
+  /* USER CODE END NonMaskableInt_IRQn 0 */
+  /* USER CODE BEGIN NonMaskableInt_IRQn 1 */
+   while (1)
+  {
+  }
+  /* USER CODE END NonMaskableInt_IRQn 1 */
+}
+
+/**
+  * @brief This function handles Hard fault interrupt.
+  */
+void HardFault_Handler(void)
+{
+  /* USER CODE BEGIN HardFault_IRQn 0 */
+
+  /* USER CODE END HardFault_IRQn 0 */
+  while (1)
+  {
+    /* USER CODE BEGIN W1_HardFault_IRQn 0 */
+    /* USER CODE END W1_HardFault_IRQn 0 */
+  }
+}
+
+/**
+  * @brief This function handles Memory management fault.
+  */
+void MemManage_Handler(void)
+{
+  /* USER CODE BEGIN MemoryManagement_IRQn 0 */
+
+  /* USER CODE END MemoryManagement_IRQn 0 */
+  while (1)
+  {
+    /* USER CODE BEGIN W1_MemoryManagement_IRQn 0 */
+    /* USER CODE END W1_MemoryManagement_IRQn 0 */
+  }
+}
+
+/**
+  * @brief This function handles Prefetch fault, memory access fault.
+  */
+void BusFault_Handler(void)
+{
+  /* USER CODE BEGIN BusFault_IRQn 0 */
+
+  /* USER CODE END BusFault_IRQn 0 */
+  while (1)
+  {
+    /* USER CODE BEGIN W1_BusFault_IRQn 0 */
+    /* USER CODE END W1_BusFault_IRQn 0 */
+  }
+}
+
+/**
+  * @brief This function handles Undefined instruction or illegal state.
+  */
+void UsageFault_Handler(void)
+{
+  /* USER CODE BEGIN UsageFault_IRQn 0 */
+
+  /* USER CODE END UsageFault_IRQn 0 */
+  while (1)
+  {
+    /* USER CODE BEGIN W1_UsageFault_IRQn 0 */
+    /* USER CODE END W1_UsageFault_IRQn 0 */
+  }
+}
+
+/**
+  * @brief This function handles System service call via SWI instruction.
+  */
+void SVC_Handler(void)
+{
+  /* USER CODE BEGIN SVCall_IRQn 0 */
+
+  /* USER CODE END SVCall_IRQn 0 */
+  /* USER CODE BEGIN SVCall_IRQn 1 */
+
+  /* USER CODE END SVCall_IRQn 1 */
+}
+
+/**
+  * @brief This function handles Debug monitor.
+  */
+void DebugMon_Handler(void)
+{
+  /* USER CODE BEGIN DebugMonitor_IRQn 0 */
+
+  /* USER CODE END DebugMonitor_IRQn 0 */
+  /* USER CODE BEGIN DebugMonitor_IRQn 1 */
+
+  /* USER CODE END DebugMonitor_IRQn 1 */
+}
+
+/**
+  * @brief This function handles Pendable request for system service.
+  */
+void PendSV_Handler(void)
+{
+  /* USER CODE BEGIN PendSV_IRQn 0 */
+
+  /* USER CODE END PendSV_IRQn 0 */
+  /* USER CODE BEGIN PendSV_IRQn 1 */
+
+  /* USER CODE END PendSV_IRQn 1 */
+}
+
+/**
+  * @brief This function handles System tick timer.
+  */
+void SysTick_Handler(void)
+{
+  /* USER CODE BEGIN SysTick_IRQn 0 */
+
+  /* USER CODE END SysTick_IRQn 0 */
+  HAL_IncTick();
+  /* USER CODE BEGIN SysTick_IRQn 1 */
+
+  /* USER CODE END SysTick_IRQn 1 */
+}
+
+/******************************************************************************/
+/* STM32G4xx Peripheral Interrupt Handlers                                    */
+/* Add here the Interrupt Handlers for the used peripherals.                  */
+/* For the available peripheral interrupt handler names,                      */
+/* please refer to the startup file (startup_stm32g4xx.s).                    */
+/******************************************************************************/
+
+/**
+  * @brief This function handles ADC1 and ADC2 global interrupt.
+  */
+void ADC1_2_IRQHandler(void)
+{
+  /* USER CODE BEGIN ADC1_2_IRQn 0 */
+	//LL_ADC_ClearFlag_EOSMP(ADC1);
+	LL_ADC_ClearFlag_EOC(ADC1);
+	//LL_ADC_ClearFlag_EOSMP(ADC2);
+	LL_ADC_ClearFlag_EOC(ADC2);
+	ADC_data = ADC12_COMMON->CDR;
+	ADC1_data_prev = ADC1_data;
+	ADC2_data_prev = ADC2_data;
+	//ADC1_data = ADC_data & 0x0000ffff;
+	//ADC2_data = ADC_data >> 16;
+	if((ADC_data & 0x0000ffff) > ADC1_data_prev - ADC_max_change && (ADC_data & 0x0000ffff) < ADC1_data_prev + ADC_max_change){ // if  in range
+		ADC1_data = ADC_data & 0x0000ffff;
+	}
+	if(ADC_data >> 16 > ADC2_data_prev - ADC_max_change && ADC_data >> 16 < ADC2_data_prev + ADC_max_change){ // if  in range
+		ADC2_data = ADC_data >> 16;
+	}
+
+
+	//dataH[plot_data_index] = TIM1->CNT;
+  /* USER CODE END ADC1_2_IRQn 0 */
+  /* USER CODE BEGIN ADC1_2_IRQn 1 */
+
+  /* USER CODE END ADC1_2_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM1 update interrupt and TIM16 global interrupt.
+  */
+void TIM1_UP_TIM16_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM1_UP_TIM16_IRQn 0 */
+	LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_9);
+	//LL_GPIO_TogglePin(GPIOA, LL_GPIO_PIN_5);
+	//ITcounter ++;
+	TIM1_OV_FLAG = 1;
+	sampling_started = 0;
+	TIM1_ov_cnt++;
+
+	LL_EXTI_GenerateSWI_0_31(LL_EXTI_LINE_0);
+	//TIM1_ov_cnt++;
+	//TIM1_ov_cnt = TIM1_ov_cnt % 4096;
+	if(first_vector_time > 0){
+	set_SVPWM_vect(vect_codes[0]);
+	}
+	if(TIM1->CCR1 > 128*17){ // ADC start sample timer
+		sampling_started = 1;
+		LL_TIM_EnableCounter(TIM6);
+
+	}
+	//readEnc();
+
+	if (plot & 1 == 1){ // enable plot function
+		plot |= 0x02;
+	}
+	//sekvence();
+  /* USER CODE END TIM1_UP_TIM16_IRQn 0 */
+  /* USER CODE BEGIN TIM1_UP_TIM16_IRQn 1 */
+	// end of  SVPWM cycle - stop second vector start null vector
+	LL_TIM_ClearFlag_UPDATE(TIM1);
+	LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_9);
+  /* USER CODE END TIM1_UP_TIM16_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM1 capture compare interrupt.
+  */
+void TIM1_CC_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM1_CC_IRQn 0 */
+
+  /* USER CODE END TIM1_CC_IRQn 0 */
+  /* USER CODE BEGIN TIM1_CC_IRQn 1 */
+	if(LL_TIM_IsActiveFlag_CC1(TIM1)){
+
+		if(sampling_started == 0 && TIM1->CCR2 > 128*17+TIM1->CCR1){ // ADC start sample timer
+				LL_TIM_EnableCounter(TIM6);
+				sampling_started = 1;
+			}
+		// stop null start first vector
+		if(second_vector_time > 0){
+		set_SVPWM_vect(vect_codes[1]);
+		}
+		LL_TIM_ClearFlag_CC1(TIM1);
+	}
+	if(LL_TIM_IsActiveFlag_CC2(TIM1)){
+		// stop first start second vect
+		if(null_vector_time > 0){
+		set_SVPWM_vect(vect_codes[2]);
+		}
+		if(sampling_started == 0){
+			LL_TIM_EnableCounter(TIM6);
+			sampling_started = 1;
+		}
+		//SVPWM(amp_input,ang_input);
+		//SVPWM(500, cislo16);
+		LL_TIM_ClearFlag_CC2(TIM1);
+	}
+  /* USER CODE END TIM1_CC_IRQn 1 */
+}
+
+/**
+  * @brief This function handles USART2 global interrupt / USART2 wake-up interrupt through EXTI line 26.
+  */
+void USART2_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART2_IRQn 0 */
+		uint8_t t =0;
+		if(LL_USART_IsActiveFlag_RXNE_RXFNE(USART2)){
+			t = LL_USART_ReceiveData8(USART2);
+
+			if(t != '\n' && t != '\r' && t != '\0' && rec_cnt < UART_RxSize){
+				UART2_RxBuffer[rec_cnt] = t;
+				rec_cnt++;
+			}
+			else if (rec_cnt > 0 && t != '\0'){
+				if(UART2_RxBuffer[0] == 'c'){ // command identifier
+					strncpy (Recieved_data,UART2_RxBuffer, rec_cnt);
+					Recieved_data[rec_cnt] = '\0';
+					rec_ack = 0; // set acknowledged to 0
+				}
+				else{ // line is not command
+					strncpy (Recieved_data,UART2_RxBuffer, rec_cnt);
+					Recieved_data[rec_cnt] = '\0';
+					rec_fail = 1; // set fail to 1
+				}
+				rec_cnt = 0;
+
+			}
+		}
+		if(LL_USART_IsActiveFlag_ORE(USART2)){
+			LL_USART_ClearFlag_ORE(USART2);
+		}
+  /* USER CODE END USART2_IRQn 0 */
+  /* USER CODE BEGIN USART2_IRQn 1 */
+
+  /* USER CODE END USART2_IRQn 1 */
+}
+
+/* USER CODE BEGIN 1 */
+void EXTI0_IRQHandler(void){
+	LL_GPIO_SetOutputPin(GPIOC, LL_GPIO_PIN_8);
+	if(LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_0)){
+		LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_0);
+		CLOSED_LOOP_MAIN();
+	}
+	LL_GPIO_ResetOutputPin(GPIOC, LL_GPIO_PIN_8);
+
+}
+/* USER CODE END 1 */
