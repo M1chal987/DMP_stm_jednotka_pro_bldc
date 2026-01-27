@@ -782,11 +782,14 @@ void CLOSED_LOOP_MAIN(void){
 	if(V_a < 0){ang += 1800;}
 	else if (V_b < 0){ang += 3600;}
 	// omezení max. amplitudy
-	if(amp < 10000){SVPWM_MOD_AMP = amp;}
+	if(amp > 100000){Int_I_d_val = 0;Int_I_q_val = 0;} // extreme overshoot
+	if(amp < 11000){SVPWM_MOD_AMP = amp;}
 	else{
-		SVPWM_MOD_AMP =0;
-		Int_I_d_val = 0; // reset integratoru
-		Int_I_q_val = 0;
+		SVPWM_MOD_AMP = 11000;
+		//Int_I_d_val = 0; // reset integratoru
+		//Int_I_q_val = 0;
+		Int_I_d_val -=  I_d_error / 5000; // lower integrator insted of reset
+		Int_I_q_val -= I_q_error / 5000;
 	}
 	// volání svpwm funkce
 	SVPWM_MOD_ANG = ang;
