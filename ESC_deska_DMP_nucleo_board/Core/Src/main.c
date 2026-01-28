@@ -207,6 +207,15 @@ uint8_t TIM1_OV_FLAG;
 
 extern uint32_t ADC_data[2];
 
+
+// demo vars
+uint8_t set_mode = 0;
+uint16_t swing_zero_pos = 0;
+uint16_t max_swing = 30;
+uint8_t swing_dir = 0;   // bit mask to stop at top position b4
+int16_t swing_pow = 50;
+
+
 //uint8_t stavSekvenceStridani = 0; // not used
 /* USER CODE END PV */
 
@@ -238,6 +247,52 @@ void UART_delay_func(){
 		asm("nop");
 		asm("nop");
 	}
+
+}
+
+void driver_demo_func(uint8_t mode){
+	// sekvencer, switch, swing - houpacka / kyvadlo
+	switch (mode){
+	default:
+		break;
+	case 1: // sekvencer
+		use_pos_PID = 1;
+		use_vel_PID = 1;
+		if(TIM1_ov_cnt > sequencer_us){
+			if(use_pos_PID){
+				des_position = pos_sequence[sequencer_CNT];
+				sequencer_CNT++;
+				sequencer_CNT = sequencer_CNT % pos_sequence_len;
+				}
+			TIM1_ov_cnt = 0;
+			}
+		break;
+	case 2:
+		use_pos_PID = 0;
+		use_vel_PID = 0;
+		if (ang_velocity > 0){
+			I_d_rqst = swing_pow;
+
+		}
+		else if (ang_velocity < 0){
+			I_d_rqst = - swing_pow;
+			}
+		else{
+			//I_d_rqst = - I_d_rqst;
+			}
+		uint16_t swing_top_h = swing_zero_pos + 1750 % 3600; // tolerance range of top position
+		uint16_t swing_top_l = swing_zero_pos + 1850 % 3600;
+		if( swing_dir & 4 || (swing_top_h > uhel_abs && swing_top_l < uhel_abs)){
+			swing_dir |= 4;
+			use_pos_PID = 1;
+			des_position = swing_top_l + 50 % 3600;
+		}
+		else{
+			use_pos_PID = 0;
+			use_vel_PID = 0;
+			swing_dir &= ~4; // reset top pos detect
+		}
+		}
 
 }
 
@@ -672,6 +727,7 @@ void set_SVPWM_vect(uint8_t vect_code){
 }
 
 void CLOSED_LOOP_MAIN(void){
+	driver_demo_func(set_mode); // no mode selected
 	readEnc();
 	if(use_vel_PID){
 		I_d_rqst = vel_PID(des_velocity, ang_velocity);
