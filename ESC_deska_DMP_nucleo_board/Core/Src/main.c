@@ -162,8 +162,8 @@ uint16_t pos_sequence[36] = {0,900,1800,2700,0,1800};
 uint8_t pos_sequence_len = 7;
 uint8_t use_pos_PID = 1;
 float pos_Kp = 0.6;
-float pos_Ki = 5;
-float pos_Kd = 30;
+float pos_Ki = 0.1;
+float pos_Kd = 100;
 float pos_integrator;
 float pos_e;
 
@@ -209,8 +209,8 @@ extern uint32_t ADC_data[2];
 
 
 // demo vars
-uint8_t set_mode = 0;
-uint16_t swing_zero_pos = 0;
+uint8_t set_mode = 2;
+uint16_t swing_zero_pos = 1953;
 uint16_t max_swing = 30;
 uint8_t swing_dir = 0;   // bit mask to stop at top position b4
 int16_t swing_pow = 50;
@@ -280,14 +280,15 @@ void driver_demo_func(uint8_t mode){
 		else{
 			//I_d_rqst = - I_d_rqst;
 			}
-		uint16_t swing_top_h = swing_zero_pos + 1750 % 3600; // tolerance range of top position
-		uint16_t swing_top_l = swing_zero_pos + 1850 % 3600;
-		if( swing_dir & 4 || (swing_top_h > uhel_abs && swing_top_l < uhel_abs)){
+		uint16_t swing_top_h = (swing_zero_pos + 1900) % 3600; // tolerance range of top position
+		uint16_t swing_top_l = (swing_zero_pos + 1700) % 3600;
+		if(swing_top_h > uhel_abs && swing_top_l < uhel_abs){
 			swing_dir |= 4;
 			use_pos_PID = 1;
 			des_position = swing_top_l + 50 % 3600;
 		}
 		else{
+			pos_integrator = 0;
 			use_pos_PID = 0;
 			use_vel_PID = 0;
 			swing_dir &= ~4; // reset top pos detect
