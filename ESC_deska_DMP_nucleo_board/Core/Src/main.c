@@ -97,12 +97,13 @@ uint16_t angle_poll_cnt;
 
 //======== UART plotting ==================
 uint8_t plot = 0;   //b0 = plot EN, b1 = plot flag generated in tim1
-uint16_t plotCNT = 0;// send x plot variables of data
-uint16_t maxPltCnt = 500;
+static uint16_t plotCNT = 0;// send x plot variables of data
+uint16_t maxPltCnt = 100;
 uint16_t dataA[500];
 uint16_t dataB[500];
 uint16_t dataH[500];
-
+uint16_t plot_rate = 100; // save once in var times -- lower sample rate eg. 10 = 1 ms 10000 = 1s sample rate
+static uint16_t plot_rate_cnt = 0;
 float dataC_Fl[500];
 float dataD_Fl[500];
 float dataE_Fl[500];
@@ -251,6 +252,9 @@ void UART_delay_func(){
 }
 
 void driver_demo_func(uint8_t mode){
+	// send pos data to graph response of PID - in c_plt - make adjustable sample rate
+
+
 	// sekvencer, switch, swing - houpacka / kyvadlo
 	switch (mode){
 	default:
@@ -357,11 +361,6 @@ void recieve_eval(){ // TODO : program to be fully controllable trough uart - po
 	// -----------
 
 	rec_ack = 1;
-	if(recognised_com == 3){ // c_plt plotting command
-		plot = 0x01;
-		plotCNT = maxPltCnt;
-		return;
-	}
 	// handling of received number(s)
 	/*
 	char* end;
@@ -394,6 +393,12 @@ void recieve_eval(){ // TODO : program to be fully controllable trough uart - po
 		}
 		else{use_pos_PID = 1;use_vel_PID = 0;}
 
+		break;
+	case 3:
+		if(rec_num == 0){rec_num =1;}
+		plot_rate = rec_num;
+		plot = 0x01;
+		plotCNT = maxPltCnt;
 		break;
 	case 4:
 		// tune pid for position regulator
@@ -569,31 +574,40 @@ float vel_PID(int16_t vel_w, int16_t vel_y){
 }
 
 void plot_save_sample(void){
-	dataA[plot_data_index] = ADC1_data;
-	dataB[plot_data_index] = ADC2_data;
-	dataC_Fl[plot_data_index] = I_d_error;
-	dataD_Fl[plot_data_index] = I_q_error;
-	dataE_Fl[plot_data_index] = uhel_abs;
-	dataF_Fl[plot_data_index] = I_d;
-	//dataG_Fl[plot_data_index] = I_q;
-
-	plot_data_index++;
-	if(plotCNT == 0 || plotCNT > 1000 || plot > 3){
-		plot = 4; // b2 = ready for transmit
-		plot_data_index = 0;
+	// send pos data to graph response of PID - in c_plt - make adjustable sample rate  use data ABCDEH
+	if(plot_rate_cnt == 0){
+		dataA[plot_data_index] = des_position;
+		dataB[plot_data_index] = uhel_abs;
+		dataC_Fl[plot_data_index] = I_d;
+		dataD_Fl[plot_data_index] = I_q;
+		dataE_Fl[plot_data_index] = I_d_rqst;
+		//dataF_Fl[plot_data_index] = I_d_rgst;
+		//dataG_Fl[plot_data_index] = I_q;
+		dataH[plot_data_index] = plot_data_index;
+		plot_data_index++;
+		if(plotCNT == 0 || plotCNT > 1000 || plot > 3){
+			plot = 4; // b2 = ready for transmit
+			plot_data_index = 0;
 		//plot_tx();
-		plotCNT = 0;
+			plotCNT = 0;
+		}
+		else{
+			plotCNT--;
+		}
+		plot_rate_cnt = plot_rate;
 	}
-	else{
-		plotCNT--;
-	}
+	plot_rate_cnt -= 1;
 }
 
 void plot_tx(void){ // send all acquired data from plot_save_sample
-		//__disable_irq;
-	//LL_TIM_DisableCounter(TIM1);
-	//set_SVPWM_vect(6); // disable all Motor mosfets
+	Transmit("des_pos, abs_uhel, I_d, I_q, I_d_rgst, plot_data_index \n"); // transmit names of variables - check against plot save sample
 	for (uint16_t i=0; i < maxPltCnt;i++){
+		UintToStr(dataA[i], str);
+		str[5] = ',';
+		Transmit(str);
+		UintToStr(dataB[i], str);
+		str[5] = ',';
+		Transmit(str);
 		snprintf(str,40,"%f",dataC_Fl[i]);
 		Transmit(str);
 		Transmit(",");
@@ -602,19 +616,13 @@ void plot_tx(void){ // send all acquired data from plot_save_sample
 		Transmit(",");
 		snprintf(str,40,"%f",dataE_Fl[i]);
 		Transmit(str);
-		Transmit(",");/*
+		/*
 		snprintf(str,40,"%f",dataF_Fl[i]);
 		Transmit(str);
 		Transmit(",");
 		snprintf(str,40,"%f",dataG_Fl[i]);
 		Transmit(str);
 		Transmit(",");*/
-		UintToStr(dataA[i], str);
-		str[5] = ',';
-		Transmit(str);
-		UintToStr(dataB[i], str);
-		str[5] = ',';
-		Transmit(str);
 		UintToStr(dataH[i], str);
 		Transmit(str);
 		Transmit("\r\n");
