@@ -151,7 +151,7 @@ float I_d_error;
 float I_q_error;
 
 // ============ REGULATOR Coefficients ===========
-float Kp_d = 1; // proportional gain I_d
+float Kp_d = -1; // proportional gain I_d
 float Ki_d = -5000; // integral gain I_d
 
 float Kp_q = 3; // proportional gain I_q
@@ -210,7 +210,7 @@ extern uint32_t ADC_data[2];
 
 
 // demo vars
-uint8_t set_mode = 2;
+uint8_t set_mode = 0;
 uint16_t swing_zero_pos = 1953;
 uint16_t max_swing = 30;
 uint8_t swing_dir = 0;   // bit mask to stop at top position b4
@@ -616,6 +616,7 @@ void plot_tx(void){ // send all acquired data from plot_save_sample
 		Transmit(",");
 		snprintf(str,40,"%f",dataE_Fl[i]);
 		Transmit(str);
+		Transmit(",");
 		/*
 		snprintf(str,40,"%f",dataF_Fl[i]);
 		Transmit(str);
