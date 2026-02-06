@@ -151,14 +151,15 @@ float I_d_error;
 float I_q_error;
 
 // ============ REGULATOR Coefficients ===========
-float Kp_d = -1; // proportional gain I_d
-float Ki_d = -5000; // integral gain I_d
+float Kp_d = 1; // proportional gain I_d
+float Ki_d = 5000; // integral gain I_d
 
 float Kp_q = 3; // proportional gain I_q
 float Ki_q = 10000; // integral gain I_d
 
 // position regulators
 uint16_t des_position; // desired position value
+uint16_t des_position_prev;
 uint16_t pos_sequence[36] = {0,900,1800,2700,0,1800};
 uint8_t pos_sequence_len = 7;
 uint8_t use_pos_PID = 1;
@@ -211,11 +212,12 @@ extern uint32_t ADC_data[2];
 
 // demo vars
 uint8_t set_mode = 0;
-uint16_t swing_zero_pos = 1953;
-uint16_t max_swing = 30;
+uint16_t swing_zero_pos = 1953; // should be set in uart eval mode - 2 set command
 uint8_t swing_dir = 0;   // bit mask to stop at top position b4
 int16_t swing_pow = 50;
-
+//int16_t switch_positions[36] = {0,300,600,900}; // use position sequence array
+// uint8_t switch_pos_cnt = 4; // amount of positions switch can be in // use pos_sequence_len
+int16_t switch_snap_range = 100; // range when switch snaps into detent
 
 //uint8_t stavSekvenceStridani = 0; // not used
 /* USER CODE END PV */
@@ -252,28 +254,24 @@ void UART_delay_func(){
 }
 
 void driver_demo_func(uint8_t mode){
-	// send pos data to graph response of PID - in c_plt - make adjustable sample rate
-
-
 	// sekvencer, switch, swing - houpacka / kyvadlo
+	// choosing pid regulators pos veloc - should be in demo set from uart eval - optimize time of demo function
 	switch (mode){
-	default:
+	default: // nothing set mode - 0
 		break;
 	case 1: // sekvencer
-		use_pos_PID = 1;
-		use_vel_PID = 1;
+		//use_pos_PID = 1;
+		//use_vel_PID = 0;
 		if(TIM1_ov_cnt > sequencer_us){
-			if(use_pos_PID){
-				des_position = pos_sequence[sequencer_CNT];
-				sequencer_CNT++;
-				sequencer_CNT = sequencer_CNT % pos_sequence_len;
-				}
+			des_position = pos_sequence[sequencer_CNT];
+			sequencer_CNT++;
+			sequencer_CNT = sequencer_CNT % pos_sequence_len;
 			TIM1_ov_cnt = 0;
 			}
 		break;
-	case 2:
-		use_pos_PID = 0;
-		use_vel_PID = 0;
+	case 2: // swing
+		//use_pos_PID = 0;
+		//use_vel_PID = 0;
 		if (ang_velocity > 0){
 			I_d_rqst = swing_pow;
 
@@ -289,7 +287,7 @@ void driver_demo_func(uint8_t mode){
 		if(swing_top_h > uhel_abs && swing_top_l < uhel_abs){
 			swing_dir |= 4;
 			use_pos_PID = 1;
-			des_position = swing_top_l + 50 % 3600;
+			des_position = (swing_top_l + 50) % 3600;
 		}
 		else{
 			pos_integrator = 0;
@@ -297,6 +295,28 @@ void driver_demo_func(uint8_t mode){
 			use_vel_PID = 0;
 			swing_dir &= ~4; // reset top pos detect
 		}
+		break;
+	case 3: // switch
+		uint8_t snapped = 0;
+		for(uint8_t i = 0; i < pos_sequence_len; i++){ // find closest switch 'detent'
+			// possible ranges -10 3610		>>>>	3590 < uhel abs 	 10 > uhel abs
+			if(pos_sequence[i] - switch_snap_range < 0){ // when range is around zero
+				// switch pos can be 10
+				// pos_sequence[i] - switch_snap_range + 3600 = 3590 and pos_sequence[i] + switch_snap_range = 20
+				if(uhel_abs > pos_sequence[i] - switch_snap_range + 3600 || uhel_abs < pos_sequence[i] + switch_snap_range){
+					des_position = pos_sequence[i]; // set detent
+					snapped  = 1;
+					}
+			}
+			// case high switch pos eg 3590 -> 3610 > uhel_abs && 3580 < uhel_abs - should include uhel_abs = 10
+			else if((pos_sequence[i] + switch_snap_range > uhel_abs && pos_sequence[i] - switch_snap_range < uhel_abs) || (pos_sequence[i] + switch_snap_range > 3600 && pos_sequence[i] + switch_snap_range - 3600 > uhel_abs)){
+				des_position = pos_sequence[i]; // set detent
+				snapped = 1;
+				}
+		}
+		if (snapped){use_pos_PID = 1;}
+		else{use_pos_PID = 0; I_d_rqst = 0;}
+		break;
 		}
 
 }
@@ -320,11 +340,14 @@ void recieve_eval(){ // TODO : program to be fully controllable trough uart - po
 	 * c set id disables pos pid and sets id to rec. number
 	 * c vel enable vel pid and set target value
 	 *
+	 * c_set_demo - set demo mode
+	 * c_set_iq - set iq current
+	 *
 	 * Received data - array that stores full received command
 	 * */
 	uint8_t msg_tx[] = "ack \r\n";
-	char commands[13][15] = {"c_enable","c_pos","c_plt","c_pid_pos","c_dq_pi","c_disable","c_seqv_tim","c_seqv_len","c_seqv_step","c_ang_pol","c_set_id","c_vel","c_pid_vel"};
-	uint8_t com_cnt = 13; // number of commands
+	char commands[15][15] = {"c_enable","c_pos","c_plt","c_pid_pos","c_dq_pi","c_disable","c_seqv_tim","c_seqv_len","c_seqv_step","c_ang_pol","c_set_id","c_vel","c_pid_vel","c_set_demo","c_set_iq"};
+	uint8_t com_cnt = 15; // number of commands
 	uint8_t recognised_com = 0;
 	uint8_t com_check = 0; // which command is being checked
 	uint16_t rec_num;
@@ -384,6 +407,10 @@ void recieve_eval(){ // TODO : program to be fully controllable trough uart - po
 	case 1:
 		// enable drive
 		LL_TIM_EnableCounter(TIM1);
+		pos_integrator = 0;
+		Int_I_d_val = 0;
+		Int_I_q_val = 0;
+
 		break;
 	case 2:
 		if(rec_num <= 3600){ // set target angle
@@ -403,6 +430,7 @@ void recieve_eval(){ // TODO : program to be fully controllable trough uart - po
 	case 4:
 		// tune pid for position regulator
 		str_to_floats();
+		pos_integrator = 0;
 		pos_Kp = rec_floats[0];
 		pos_Ki = rec_floats[1];
 		pos_Kd = rec_floats[2];
@@ -429,7 +457,7 @@ void recieve_eval(){ // TODO : program to be fully controllable trough uart - po
 			if(rec_num <= 3600 && sequencer_write_index < pos_sequence_len){pos_sequence[sequencer_write_index] = rec_num; sequencer_write_index++;}
 			//else if(sequencer_write_index == pos_sequence_len){}// error condition more steps than length
 		break;
-	case 10 :
+	case 10 : // angle polling
 		if(rec_num == 1){angle_poll = 1;}
 		else{angle_poll = 0;}
 		break;
@@ -452,6 +480,37 @@ void recieve_eval(){ // TODO : program to be fully controllable trough uart - po
 			vel_Kp = rec_floats[0];
 			vel_Ki = rec_floats[1];
 			vel_Kd = rec_floats[2];
+		break;
+	case 14:
+		set_mode = rec_num & 0x00ff;
+		switch (set_mode){ // cases for different modes
+		default:
+			pos_integrator = 0;
+			break;
+		case 1: // sekvencer
+			pos_integrator = 0;
+			use_pos_PID = 1;
+			use_vel_PID = 0;
+			break;
+		case 2: // swing
+			str_to_floats();
+			swing_pow = rec_floats[2];
+			swing_zero_pos = uhel_abs; // set zero pos from current - resting angle
+			use_pos_PID = 0;
+			use_vel_PID = 0;
+			break;
+		case 3: // switch
+			str_to_floats();
+			switch_snap_range = rec_floats[2]; // second number after demo = 3
+			use_pos_PID = 1;
+			use_vel_PID = 0;
+			pos_Ki = 0;
+			break;
+		}
+		break;
+	case 15:
+		str_to_floats();
+		I_q_rqst = rec_floats[0];
 		break;
 	}
 	// reset data array
@@ -556,8 +615,13 @@ float pos_PID(uint16_t pos_w, uint16_t pos_y){
 	pos_integrator += pos_e / 10000;
 	if(pos_integrator > 1000){pos_integrator = 1000;}
 	if(pos_integrator < -1000){pos_integrator = -1000;}
-
-	pos_u = pos_Kp * pos_e + pos_Ki * pos_integrator + pos_Kd * (pos_e - pos_e_prev);
+	if(des_position == des_position_prev){ // dont do derivative part when desired value is changed
+		pos_u = pos_Kp * pos_e + pos_Ki * pos_integrator + pos_Kd * (pos_e - pos_e_prev);
+	}
+	else{
+		pos_u = pos_Kp * pos_e + pos_Ki * pos_integrator;
+	}
+	des_position_prev = des_position;
 	return pos_u;
 }
 
@@ -831,7 +895,7 @@ void CLOSED_LOOP_MAIN(void){
 	// ======= REGULATORS PI
 	float V_d; // hodnoty pro korekci pwm rámec DQ - k rotoru
 	float V_q;
-	V_d = Kp_d*(I_d_rqst - I_d) + Ki_d*Int_I_d_val;
+	V_d = - Kp_d*(I_d_rqst - I_d) - Ki_d*Int_I_d_val; // V_d inverted
 	V_q = Kp_q*(I_q_rqst - I_q) + Ki_q* Int_I_q_val;
 	// ==================
 
