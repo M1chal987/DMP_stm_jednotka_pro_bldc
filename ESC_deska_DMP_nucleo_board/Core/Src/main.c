@@ -482,7 +482,8 @@ void recieve_eval(){ // TODO : program to be fully controllable trough uart - po
 			vel_Kd = rec_floats[2];
 		break;
 	case 14:
-		set_mode = rec_num & 0x00ff;
+		str_to_floats();
+		set_mode = rec_floats[0];
 		switch (set_mode){ // cases for different modes
 		default:
 			pos_integrator = 0;
@@ -493,15 +494,13 @@ void recieve_eval(){ // TODO : program to be fully controllable trough uart - po
 			use_vel_PID = 0;
 			break;
 		case 2: // swing
-			str_to_floats();
-			swing_pow = rec_floats[2];
+			swing_pow = rec_floats[1];
 			swing_zero_pos = uhel_abs; // set zero pos from current - resting angle
 			use_pos_PID = 0;
 			use_vel_PID = 0;
 			break;
 		case 3: // switch
-			str_to_floats();
-			switch_snap_range = rec_floats[2]; // second number after demo = 3
+			switch_snap_range = rec_floats[1]; // second number after demo = 3
 			use_pos_PID = 1;
 			use_vel_PID = 0;
 			pos_Ki = 0;
