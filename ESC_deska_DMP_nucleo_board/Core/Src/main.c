@@ -189,6 +189,13 @@ int16_t sequencer_us = 10000;
 int16_t I_d_rqst = 0;
 uint8_t USE_OPEN_LOOP = 0; // I_d reguest will be directly corection voltage
 int16_t I_q_rqst = 0;
+
+
+
+// variebles to decrease PID to 1 kHz
+const uint8_t PID_rate_max = 10;
+uint8_t PID_rate_cnt = PID_rate_max;
+
 // ==================================
 
 uint8_t vect_codes[] = {0,0,0}; // set codes to be accesed by TIM1 ISR order is first,second,null - SVPWM functions
@@ -582,15 +589,21 @@ void readEnc(void){
 	else{
 		cislo32 = SPI_received_data;// -8200;
 	}
-	uhel_abs_prev = uhel_abs;
+	PID_rate_cnt --; // decrease counter
+	if(PID_rate_cnt == 0){
+		uhel_abs_prev = uhel_abs;
+		PID_rate_cnt = PID_rate_max;
+	}
 	uhel_abs = (cislo32 * 3600)/8192;
 	// offset angle by 330
 	uhel_abs =uhel_abs + 3600 - enc_ang_offset;
 	uhel_abs = uhel_abs % 3600;
 
-	ang_velocity = uhel_abs - uhel_abs_prev;
-	if(ang_velocity > 1800){ang_velocity -= 3600;}
-	else if(ang_velocity < -1800){ang_velocity += 3600;}
+	if(PID_rate_cnt == 0){
+		ang_velocity = uhel_abs - uhel_abs_prev;
+		if(ang_velocity > 1800){ang_velocity -= 3600;}
+		else if(ang_velocity < -1800){ang_velocity += 3600;}
+	}
 
 
 	//angDiff = recAngPrev - uhel_abs;
@@ -1160,12 +1173,12 @@ int main(void)
 			} // send angle to PC
 		}
 		if(use_sequencer && TIM1_ov_cnt > sequencer_us){
-			if(use_pos_PID){
+			if(use_pos_PID && PID_rate_cnt == 0){
 				des_position = pos_sequence[sequencer_CNT];
 				sequencer_CNT++;
 				sequencer_CNT = sequencer_CNT % pos_sequence_len;
 			}
-			if(use_vel_PID){
+			if(use_vel_PID && PID_rate_cnt == 0){
 				des_velocity = vel_sequence[sequencer_CNT];
 				sequencer_CNT++;
 				sequencer_CNT = sequencer_CNT % vel_sequence_max_len;
