@@ -590,10 +590,6 @@ void readEnc(void){
 		cislo32 = SPI_received_data;// -8200;
 	}
 	PID_rate_cnt --; // decrease counter
-	if(PID_rate_cnt == 0){
-		uhel_abs_prev = uhel_abs;
-		PID_rate_cnt = PID_rate_max;
-	}
 	uhel_abs = (cislo32 * 3600)/8192;
 	// offset angle by 330
 	uhel_abs =uhel_abs + 3600 - enc_ang_offset;
@@ -601,6 +597,8 @@ void readEnc(void){
 
 	if(PID_rate_cnt == 0){
 		ang_velocity = uhel_abs - uhel_abs_prev;
+		PID_rate_cnt = PID_rate_max;
+		uhel_abs_prev = uhel_abs;
 		if(ang_velocity > 1800){ang_velocity -= 3600;}
 		else if(ang_velocity < -1800){ang_velocity += 3600;}
 	}
@@ -815,11 +813,11 @@ void set_SVPWM_vect(uint8_t vect_code){
 void CLOSED_LOOP_MAIN(void){
 	driver_demo_func(set_mode); // no mode selected
 	readEnc();
-	if(use_vel_PID){
+	if(use_vel_PID && PID_rate_cnt == PID_rate_max){
 		I_d_rqst = vel_PID(des_velocity, ang_velocity);
 	}
 
-	else if(use_pos_PID){
+	else if(use_pos_PID && PID_rate_cnt == PID_rate_max){
 		I_d_rqst = pos_PID(des_position, uhel_abs);
 	}
 	// v debugeru jsem dal breakpoiny na začátek a konec funkce při spuštění programu který prošel mezi těmi breakpointy tak s mi prom. co uchovává počet přetečení tim1 zvedala o 5 - 7
