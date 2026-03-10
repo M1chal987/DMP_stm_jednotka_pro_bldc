@@ -814,11 +814,11 @@ void CLOSED_LOOP_MAIN(void){
 	driver_demo_func(set_mode); // no mode selected
 	readEnc();
 	if(use_vel_PID && PID_rate_cnt == PID_rate_max){
-		I_d_rqst = vel_PID(des_velocity, ang_velocity);
+		I_q_rqst = vel_PID(des_velocity, ang_velocity);
 	}
 
 	else if(use_pos_PID && PID_rate_cnt == PID_rate_max){
-		I_d_rqst = pos_PID(des_position, uhel_abs);
+		I_q_rqst = pos_PID(des_position, uhel_abs);
 	}
 	// v debugeru jsem dal breakpoiny na začátek a konec funkce při spuštění programu který prošel mezi těmi breakpointy tak s mi prom. co uchovává počet přetečení tim1 zvedala o 5 - 7
 	// takže ten program trvá asi 500 us
@@ -831,7 +831,7 @@ void CLOSED_LOOP_MAIN(void){
 	float sin_ang = 0;
 	*/
 	// zapsání na data z ADC k nulové hodnotě - půl rozsahu
-	I_a = ADC1_data - Isense_U_zero; // directly eqvivalent
+	I_a = ADC1_data - Isense_U_zero; // directly eqvivalent to I_u
 	I_v = ADC2_data - Isense_V_zero;
 
 	uint16_t angle_poles = ((3600-uhel_abs)%514); // angle adjusted for pole count // přepočet úhlu z enkoderu vzhledem k počtu pól párům motoru nový rozsah 0 513
@@ -880,12 +880,12 @@ void CLOSED_LOOP_MAIN(void){
 
 
 	// přepočet z proudů AB na DQ které jsou vztaženy k poloze rotoru
-	I_d = I_b*cos_ang + I_a*sin_ang;
-	I_q = I_a*cos_ang - I_b*sin_ang;
+	I_d = I_a*cos_ang + I_b*sin_ang;
+	I_q = - I_a*sin_ang + I_b*cos_ang;
 
 	// obrácení hodnot
 	//I_d = -I_d;
-	I_q = -I_q;
+	//I_q = -I_q;
 
 
 	// integration - počítání integrátoru pro PI regulátor v DQ rámci
@@ -896,22 +896,22 @@ void CLOSED_LOOP_MAIN(void){
 	Int_I_q_val += I_q_error / 10000;
 
 	// limiting integration runaway
-	if (Int_I_d_val > 100000){Int_I_d_val = 100000;}
-	else if (Int_I_d_val < -100000){Int_I_d_val = -100000;}
+	if (Int_I_d_val > 1000){Int_I_d_val = 1000;}
+	else if (Int_I_d_val < -1000){Int_I_d_val = -1000;}
 
-	if (Int_I_q_val > 100000){Int_I_q_val = 100000;}
-	else if (Int_I_q_val < -100000){Int_I_q_val = -100000;}
+	if (Int_I_q_val > 1000){Int_I_q_val = 1000;}
+	else if (Int_I_q_val < -1000){Int_I_q_val = -1000;}
 
 	// ======= REGULATORS PI
 	float V_d; // hodnoty pro korekci pwm rámec DQ - k rotoru
 	float V_q;
-	V_d = - Kp_d*(I_d_rqst - I_d) - Ki_d*Int_I_d_val; // V_d inverted
+	V_d = Kp_d*(I_d_rqst - I_d) + Ki_d*Int_I_d_val; // V_d not inverted
 	V_q = Kp_q*(I_q_rqst - I_q) + Ki_q* Int_I_q_val;
 	// ==================
 
 	// prepocet korekcí na AB rámec
 	float V_a = V_d*cos_ang - V_q*sin_ang;
-	float V_b = V_q*cos_ang + V_d*sin_ang;
+	float V_b = V_d*sin_ang + V_q*cos_ang;
 	// call svpwm function with values
 
 	// prepocet korekcí na amplitudu a úhel modulace - svpwm
