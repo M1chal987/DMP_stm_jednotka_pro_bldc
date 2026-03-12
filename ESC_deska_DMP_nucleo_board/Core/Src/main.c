@@ -165,7 +165,7 @@ uint8_t pos_sequence_len = 7;
 uint8_t use_pos_PID = 1;
 float pos_Kp = 0.6;
 float pos_Ki = 0.1;
-float pos_Kd = 100;
+float pos_Kd = 10;
 float pos_integrator;
 float pos_e;
 
@@ -652,9 +652,9 @@ void plot_save_sample(void){
 	if(plot_rate_cnt == 0){
 		dataA[plot_data_index] = des_position;
 		dataB[plot_data_index] = uhel_abs;
-		dataC_Fl[plot_data_index] = I_d;
-		dataD_Fl[plot_data_index] = I_q;
-		dataE_Fl[plot_data_index] = I_d_rqst;
+		dataC_Fl[plot_data_index] = I_q;
+		dataD_Fl[plot_data_index] = I_d;
+		dataE_Fl[plot_data_index] = I_q_rqst;
 		//dataF_Fl[plot_data_index] = I_d_rgst;
 		//dataG_Fl[plot_data_index] = I_q;
 		dataH[plot_data_index] = plot_data_index;
@@ -674,7 +674,7 @@ void plot_save_sample(void){
 }
 
 void plot_tx(void){ // send all acquired data from plot_save_sample
-	Transmit("des_pos, abs_uhel, I_d, I_q, I_d_rgst, plot_data_index \n"); // transmit names of variables - check against plot save sample
+	Transmit("des_pos, abs_uhel, I_q, I_d, I_q_rgst, plot_data_index \n"); // transmit names of variables - check against plot save sample
 	for (uint16_t i=0; i < maxPltCnt;i++){
 		UintToStr(dataA[i], str);
 		str[5] = ',';
@@ -814,11 +814,11 @@ void CLOSED_LOOP_MAIN(void){
 	driver_demo_func(set_mode); // no mode selected
 	readEnc();
 	if(use_vel_PID && PID_rate_cnt == PID_rate_max){
-		I_d_rqst = vel_PID(des_velocity, ang_velocity);
+		I_q_rqst = vel_PID(des_velocity, ang_velocity);
 	}
 
 	else if(use_pos_PID && PID_rate_cnt == PID_rate_max){
-		I_d_rqst = pos_PID(des_position, uhel_abs);
+		I_q_rqst = pos_PID(des_position, uhel_abs);
 	}
 	// v debugeru jsem dal breakpoiny na začátek a konec funkce při spuštění programu který prošel mezi těmi breakpointy tak s mi prom. co uchovává počet přetečení tim1 zvedala o 5 - 7
 	// takže ten program trvá asi 500 us
@@ -880,12 +880,12 @@ void CLOSED_LOOP_MAIN(void){
 
 
 	// přepočet z proudů AB na DQ které jsou vztaženy k poloze rotoru
-	I_d = I_b*cos_ang + I_a*sin_ang;
-	I_q = I_a*cos_ang - I_b*sin_ang;
+	I_q = I_b*cos_ang + I_a*sin_ang;
+	I_d = I_a*cos_ang - I_b*sin_ang;
 
 	// obrácení hodnot
 	//I_d = -I_d;
-	I_q = -I_q;
+	I_d = -I_d;
 
 
 	// integration - počítání integrátoru pro PI regulátor v DQ rámci
@@ -905,13 +905,13 @@ void CLOSED_LOOP_MAIN(void){
 	// ======= REGULATORS PI
 	float V_d; // hodnoty pro korekci pwm rámec DQ - k rotoru
 	float V_q;
-	V_d = - Kp_d*(I_d_rqst - I_d) - Ki_d*Int_I_d_val; // V_d inverted
-	V_q = Kp_q*(I_q_rqst - I_q) + Ki_q* Int_I_q_val;
+	V_q = - Kp_q*(I_q_rqst - I_q) - Ki_q*Int_I_q_val; // V_d inverted
+	V_d = Kp_d*(I_d_rqst - I_d) + Ki_d* Int_I_d_val;
 	// ==================
 
 	// prepocet korekcí na AB rámec
-	float V_a = V_d*cos_ang - V_q*sin_ang;
-	float V_b = V_q*cos_ang + V_d*sin_ang;
+	float V_a = V_q*cos_ang - V_d*sin_ang;
+	float V_b = V_d*cos_ang + V_q*sin_ang;
 	// call svpwm function with values
 
 	// prepocet korekcí na amplitudu a úhel modulace - svpwm
