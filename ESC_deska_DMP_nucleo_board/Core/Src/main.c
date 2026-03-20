@@ -174,9 +174,9 @@ int16_t des_velocity; // desired velocity value
 int16_t vel_sequence[5] = {0,100,-100,200,-200};
 uint8_t vel_sequence_max_len = 5;
 uint8_t use_vel_PID = 0;
-float vel_Kp = 0.6;
-float vel_Ki = 5;
-float vel_Kd = 30;
+float vel_Kp = 20;
+float vel_Ki = 30;
+float vel_Kd = 0;
 float vel_integrator;
 float vel_e;
 
@@ -280,11 +280,11 @@ void driver_demo_func(uint8_t mode){
 		//use_pos_PID = 0;
 		//use_vel_PID = 0;
 		if (ang_velocity > 0){
-			I_d_rqst = swing_pow;
+			I_q_rqst = swing_pow;
 
 		}
 		else if (ang_velocity < 0){
-			I_d_rqst = - swing_pow;
+			I_q_rqst = - swing_pow;
 			}
 		else{
 			//I_d_rqst = - I_d_rqst;
@@ -322,7 +322,7 @@ void driver_demo_func(uint8_t mode){
 				}
 		}
 		if (snapped){use_pos_PID = 1;}
-		else{use_pos_PID = 0; I_d_rqst = 0;}
+		else{use_pos_PID = 0; I_q_rqst = 0;}
 		break;
 		}
 
@@ -1176,11 +1176,12 @@ int main(void)
 				sequencer_CNT++;
 				sequencer_CNT = sequencer_CNT % pos_sequence_len;
 			}
+			/* velocity sequencer is unused option
 			if(use_vel_PID && PID_rate_cnt == 0){
 				des_velocity = vel_sequence[sequencer_CNT];
 				sequencer_CNT++;
 				sequencer_CNT = sequencer_CNT % vel_sequence_max_len;
-			}
+			}*/
 			TIM1_ov_cnt = 0;
 		}
 		//readEnc();
