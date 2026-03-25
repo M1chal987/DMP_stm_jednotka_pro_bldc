@@ -1163,6 +1163,15 @@ int main(void)
 		if(angle_poll){
 			angle_poll_cnt++;
 			if(angle_poll_cnt > 500){
+				if (ang_velocity < 0){ // posilani rychlosti pri ang_poll
+					Transmit("-");
+					UintToStr(ang_velocity * -1, str);
+				}
+				else{
+					UintToStr(ang_velocity, str);
+				}
+				str[5] = ' ';
+				Transmit(str);
 				UintToStr(uhel_abs, str);
 				str[5] = '\n';
 				str[6] = '\r';
