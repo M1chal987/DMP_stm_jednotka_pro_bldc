@@ -1185,7 +1185,7 @@ int main(void)
 				sequencer_CNT++;
 				sequencer_CNT = sequencer_CNT % pos_sequence_len;
 			}
-			/* velocity sequencer is unused option
+			/* velocity sequencer is unused option text
 			if(use_vel_PID && PID_rate_cnt == 0){
 				des_velocity = vel_sequence[sequencer_CNT];
 				sequencer_CNT++;
