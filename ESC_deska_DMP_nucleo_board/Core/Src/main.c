@@ -171,7 +171,7 @@ float pos_e;
 
 // velocity regulator
 int16_t des_velocity; // desired velocity value
-int16_t vel_sequence[5] = {0,100,-100,200,-200};
+int16_t vel_sequence[5] = {0,10,-10,20,-20}; // unused
 uint8_t vel_sequence_max_len = 5;
 uint8_t use_vel_PID = 0;
 float vel_Kp = 20;
@@ -225,6 +225,7 @@ int16_t swing_pow = 50;
 //int16_t switch_positions[36] = {0,300,600,900}; // use position sequence array
 // uint8_t switch_pos_cnt = 4; // amount of positions switch can be in // use pos_sequence_len
 int16_t switch_snap_range = 100; // range when switch snaps into detent
+uint8_t switch_snapped_pos_flag = 255; // if (0 -- 36) switch has snapped - send position to PC when in main loop - out of soft interrupt
 
 //uint8_t stavSekvenceStridani = 0; // not used
 /* USER CODE END PV */
@@ -313,12 +314,18 @@ void driver_demo_func(uint8_t mode){
 				if(uhel_abs > pos_sequence[i] - switch_snap_range + 3600 || uhel_abs < pos_sequence[i] + switch_snap_range){
 					des_position = pos_sequence[i]; // set detent
 					snapped  = 1;
+					if((switch_snapped_pos_flag & 0x7f) != i){
+						switch_snapped_pos_flag = i;
+					}
 					}
 			}
 			// case high switch pos eg 3590 -> 3610 > uhel_abs && 3580 < uhel_abs - should include uhel_abs = 10
 			else if((pos_sequence[i] + switch_snap_range > uhel_abs && pos_sequence[i] - switch_snap_range < uhel_abs) || (pos_sequence[i] + switch_snap_range > 3600 && pos_sequence[i] + switch_snap_range - 3600 > uhel_abs)){
 				des_position = pos_sequence[i]; // set detent
 				snapped = 1;
+				if((switch_snapped_pos_flag & 0x7f) != i){
+					switch_snapped_pos_flag = i;
+				}
 				}
 		}
 		if (snapped){use_pos_PID = 1;}
@@ -1192,6 +1199,13 @@ int main(void)
 				sequencer_CNT = sequencer_CNT % vel_sequence_max_len;
 			}*/
 			TIM1_ov_cnt = 0;
+		}
+		if(!(switch_snapped_pos_flag & 0x80) && set_mode == 3){
+				Transmit("switch at ");
+				UintToStr(switch_snapped_pos_flag & 0x7f, str);
+				switch_snapped_pos_flag |= 0x80; // mask MSB to 1 - signal already sent value
+				Transmit(str);
+				Transmit(" \r\n");
 		}
 		//readEnc();
 		/*if(use_vel_PID){
